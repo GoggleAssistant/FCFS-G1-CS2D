@@ -1,11 +1,18 @@
 import javax.swing.*;
 import java.awt.*;
+import java.text.DecimalFormat;
 
 public class GanttChartGeneration {
     private JFrame frame;
     private JPanel progressBar; // Renamed from ganttChartPanel
     private JPanel unitBar;
     private int[][] ganttData;
+    private double avgWaitingTime;
+    private double avgTurnaroundTime;
+    private JLabel avgWaitingTimeLabel;
+    private JLabel avgWaitingTimeValue;
+    private JLabel avgTurnaroundTimeLabel;
+    private JLabel avgTurnaroundTimeValue;
 
     public GanttChartGeneration(int[][] ganttData) {
         this.ganttData = ganttData;
@@ -53,6 +60,9 @@ public class GanttChartGeneration {
         // Add the final time label
         addFinalTimeLabel();
 
+        // Add average time labels
+        addAverageTimeLabels();
+
         // Make the frame visible
         frame.setVisible(true);
     }
@@ -74,34 +84,11 @@ public class GanttChartGeneration {
     }
 
     private void FCFS() {
-        //calculate the process order and print it
         int[] processOrder = calculateProcessOrder();
-        
-        System.out.println("Process Order:");
-        for (int i = 0; i < processOrder.length; i++) {
-            System.out.println("Process " + (processOrder[i] + 1) + 
-                               " (Arrival Time: " + ganttData[processOrder[i]][0] + ")");
-        }
-        
-        // Calculate and print total time
         int totalTime = totalTime();
-        System.out.println("\nTotal time: " + totalTime);
         
-        // Set up GridBagLayout for progress bar and unit bar
         progressBar.setLayout(new GridBagLayout());
         unitBar.setLayout(new GridBagLayout());
-        
-        // Create units for progress bar and unit bar
-        for (int i = 0; i < totalTime; i++) {
-            addUnitToBar(progressBar, new Color(200, 200, 200, 50), i, false);
-            addUnitToBar(unitBar, Color.LIGHT_GRAY, i, true);
-        }
-
-        // Refresh the layout
-        progressBar.revalidate();
-        unitBar.revalidate();
-        
-        progressBar.repaint();
         
         // Calculate start and finish times
         int[] start = new int[ganttData.length];
@@ -120,13 +107,60 @@ public class GanttChartGeneration {
             start[processIndex] = currentTime;
             currentTime += burstTime;
             finish[processIndex] = currentTime;
+        }
 
-            // Add process visualization to the progress bar
+        // Create units for progress bar and unit bar
+        for (int i = 0; i < totalTime; i++) {
+            addUnitToBar(progressBar, new Color(200, 200, 200, 50), i, false, false);
+            boolean showLabel = (i == 0) || isStartOrFinishTime(i, start, finish);
+            addUnitToBar(unitBar, Color.WHITE, i, true, showLabel);
+        }
+
+        // Calculate average waiting time and average turnaround time
+        calculateAverageTimes(start, finish);
+
+        // Add process visualization to the progress bar
+        for (int i = 0; i < processOrder.length; i++) {
+            int processIndex = processOrder[i];
             addItem(processIndex, start[processIndex], finish[processIndex]);
         }
+
+        // Refresh the layout
+        progressBar.revalidate();
+        unitBar.revalidate();
+        progressBar.repaint();
+        unitBar.repaint();
     }
 
-    private void addUnitToBar(JPanel bar, Color color, int position, boolean isUnitBar) {
+    private void calculateAverageTimes(int[] start, int[] finish) {
+        int totalWaitingTime = 0;
+        int totalTurnaroundTime = 0;
+        int totalProcesses = ganttData.length;
+
+        for (int i = 0; i < totalProcesses; i++) {
+            int arrivalTime = ganttData[i][0];
+            int burstTime = ganttData[i][1];
+            int turnaroundTime = finish[i] - arrivalTime;
+            int waitingTime = turnaroundTime - burstTime;
+
+            totalWaitingTime += waitingTime;
+            totalTurnaroundTime += turnaroundTime;
+        }
+
+        avgWaitingTime = (double) totalWaitingTime / totalProcesses;
+        avgTurnaroundTime = (double) totalTurnaroundTime / totalProcesses;
+    }
+
+    private boolean isStartOrFinishTime(int time, int[] start, int[] finish) {
+        for (int i = 0; i < start.length; i++) {
+            if (time == start[i] || time == finish[i]) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private void addUnitToBar(JPanel bar, Color color, int position, boolean isUnitBar, boolean showLabel) {
         GridBagConstraints gbc = new GridBagConstraints();
         gbc.fill = GridBagConstraints.BOTH;
         gbc.weightx = 1.0;
@@ -135,14 +169,14 @@ public class GanttChartGeneration {
         gbc.gridy = 0;
 
         JPanel unit = new JPanel(new BorderLayout());
-        unit.setBackground(isUnitBar ? Color.WHITE : color); // Set to white for unit bar
+        unit.setBackground(color);
         unit.setPreferredSize(new Dimension(20, bar.getHeight() - 2));
         
-        if (isUnitBar) {
+        if (isUnitBar && showLabel) {
             // Add number label to the unit bar
             JLabel label = new JLabel("| " + position);
             label.setHorizontalAlignment(SwingConstants.LEFT);
-            label.setFont(new Font("Arial", Font.PLAIN, 20));
+            label.setFont(new Font("Arial", Font.PLAIN, 10));
             unit.add(label, BorderLayout.WEST);
         }
 
@@ -222,7 +256,6 @@ public class GanttChartGeneration {
         gbc.weightx = 1.0;
         gbc.weighty = 1.0;
 
-        // Set background color based on process index
         Color[] colors = {
             Color.decode("#ff99c8"),
             Color.decode("#fec8c3"),
@@ -233,19 +266,48 @@ public class GanttChartGeneration {
         };
         processButton.setBackground(colors[processIndex % colors.length]);
 
-        // Set button properties
         processButton.setOpaque(true);
         processButton.setBorderPainted(false);
         processButton.setFocusPainted(false);
 
+        processButton.addActionListener(e -> showProcessInfo(processIndex, startTime, finishTime));
+
         progressBar.add(processButton, gbc);
+    }
+
+    private void showProcessInfo(int processIndex, int startTime, int finishTime) {
+        DecimalFormat df = new DecimalFormat("#.##");
+        int arrivalTime = ganttData[processIndex][0];
+        int burstTime = ganttData[processIndex][1];
+        int turnaroundTime = finishTime - arrivalTime;
+        int waitingTime = turnaroundTime - burstTime;
+
+        String message = String.format(
+            "Process: P%d\n" +
+            "Starting Time: %d\n" +
+            "Completion Time: %d\n" +
+            "Duration (Burst Time): %d\n" +
+            "-----------\n" +
+            "TaT (Turnaround Time): %d\n" +
+            "WT (Waiting Time): %d\n\n",
+            processIndex + 1,
+            startTime,
+            finishTime,
+            burstTime,
+            turnaroundTime,
+            waitingTime,
+            df.format(avgWaitingTime),
+            df.format(avgTurnaroundTime)
+        );
+
+        JOptionPane.showMessageDialog(frame, message, "Process Information", JOptionPane.INFORMATION_MESSAGE);
     }
 
     private void addFinalTimeLabel() {
         int totalTime = totalTime();
         
         JLabel finalTimeLabel = new JLabel("| " + totalTime);
-        finalTimeLabel.setFont(new Font("Arial", Font.PLAIN, 20));
+        finalTimeLabel.setFont(new Font("Arial", Font.PLAIN, 10));
         finalTimeLabel.setHorizontalAlignment(SwingConstants.LEFT);
         finalTimeLabel.setBackground(Color.WHITE); // Set background to white
         finalTimeLabel.setOpaque(true); // Make the label opaque to show the background color
@@ -257,5 +319,38 @@ public class GanttChartGeneration {
         finalTimeLabel.setBounds(x, y, finalTimeLabel.getPreferredSize().width, finalTimeLabel.getPreferredSize().height);
 
         frame.add(finalTimeLabel);
+    }
+
+    private void addAverageTimeLabels() {
+        // Create labels for average waiting time and average turnaround time
+        avgWaitingTimeLabel = new JLabel("Average Waiting Time:");
+        avgWaitingTimeValue = new JLabel(String.format("%.2f", avgWaitingTime));
+        avgTurnaroundTimeLabel = new JLabel("Average Turnaround Time:");
+        avgTurnaroundTimeValue = new JLabel(String.format("%.2f", avgTurnaroundTime));
+
+        // Set font and alignment for labels
+        avgWaitingTimeLabel.setFont(new Font("Arial", Font.BOLD, 30));
+        avgWaitingTimeValue.setFont(new Font("Arial", Font.BOLD, 30));
+        avgTurnaroundTimeLabel.setFont(new Font("Arial", Font.BOLD, 30));
+        avgTurnaroundTimeValue.setFont(new Font("Arial", Font.BOLD, 30));
+
+        // Position labels under the process panel and unit panel
+        int x = unitBar.getX();
+        int y = unitBar.getY() + unitBar.getHeight() + 30;
+        avgWaitingTimeLabel.setBounds(x, y, 500, 60);
+        avgWaitingTimeValue.setBounds(x + 500, y, 100, 60);
+        avgTurnaroundTimeLabel.setBounds(x, y + 60, 500, 60);
+        avgTurnaroundTimeValue.setBounds(x + 500, y + 60, 100, 60);
+
+        // Add labels to the frame
+        frame.add(avgWaitingTimeLabel);
+        frame.add(avgWaitingTimeValue);
+        frame.add(avgTurnaroundTimeLabel);
+        frame.add(avgTurnaroundTimeValue);
+    }
+
+    private void updateAverageTimeLabels() {
+        avgWaitingTimeValue.setText(String.format("%.2f", avgWaitingTime));
+        avgTurnaroundTimeValue.setText(String.format("%.2f", avgTurnaroundTime));
     }
 }

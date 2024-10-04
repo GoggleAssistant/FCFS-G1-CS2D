@@ -101,8 +101,8 @@ public class UserInput extends JFrame {
         fcfsLabel.setForeground(Color.WHITE);
         fcfsLabel.setBounds(20, 80, 300, 30); // Moved down to align with panel1 elements
 
-        // Add "Made by CS2D - Group 1" label
-        JLabel groupLabel = new JLabel("Made by CS2D - Group 1");
+        // Add "Made by CS2D - Group 2" label
+        JLabel groupLabel = new JLabel("Made by CS2D - Group 2");
         groupLabel.setFont(new Font("Arial", Font.PLAIN, 16));
         groupLabel.setForeground(Color.WHITE);
         groupLabel.setBounds(20, 110, 300, 20); // Positioned below fcfsLabel
