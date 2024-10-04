@@ -1,6 +1,5 @@
 import javax.swing.*;
 import java.awt.*;
-import java.awt.GridLayout;
 
 public class GanttChartGeneration {
     private JFrame frame;
@@ -29,14 +28,14 @@ public class GanttChartGeneration {
         progressBar.setBackground(Color.GRAY);
 
         // Calculate the position to center the panel horizontally and raise it vertically
-        int x = (1000 - 900) / 2;
+        int x = (1100 - 1000) / 2;
         int y = 100;
         progressBar.setBounds(x, y, 1000, 100);
 
-        // Create the unit bar panel
+        // Create the unit bar panel (same size as progress bar)
         unitBar = new JPanel();
-        unitBar.setBackground(Color.LIGHT_GRAY);
-        unitBar.setBounds(x, y + 110, 1000, 50); // Position it 10px below the progress bar
+        unitBar.setBackground(Color.WHITE); // Set background to white
+        unitBar.setBounds(x, y + 110, 1000, 50); // Same width as progress bar
 
         // Create and position the "FCFS" label
         JLabel fcfsLabel = new JLabel("FCFS");
@@ -50,6 +49,9 @@ public class GanttChartGeneration {
 
         // Call FCFS method to populate the bars
         FCFS();
+
+        // Add the final time label
+        addFinalTimeLabel();
 
         // Make the frame visible
         frame.setVisible(true);
@@ -85,27 +87,66 @@ public class GanttChartGeneration {
         int totalTime = totalTime();
         System.out.println("\nTotal time: " + totalTime);
         
-        // Set up GridLayout for progress bar and unit bar
-        progressBar.setLayout(new GridLayout(1, totalTime, 0, 0));
-        unitBar.setLayout(new GridLayout(1, totalTime, 0, 0));
+        // Set up GridBagLayout for progress bar and unit bar
+        progressBar.setLayout(new GridBagLayout());
+        unitBar.setLayout(new GridBagLayout());
         
         // Create units for progress bar and unit bar
         for (int i = 0; i < totalTime; i++) {
-            JPanel progressUnit = new JPanel();
-            progressUnit.setBackground(Color.LIGHT_GRAY);
-            progressBar.add(progressUnit);
-            
-            JPanel unitBarUnit = new JPanel();
-            unitBarUnit.setBackground(Color.WHITE);
-            unitBar.add(unitBarUnit);
+            addUnitToBar(progressBar, new Color(200, 200, 200, 50), i, false);
+            addUnitToBar(unitBar, Color.LIGHT_GRAY, i, true);
         }
-        
+
         // Refresh the layout
         progressBar.revalidate();
         unitBar.revalidate();
         
-        // TODO: Add process visualization to the progress bar
-        // TODO: Add time markers to the unit bar
+        progressBar.repaint();
+        
+        // Calculate start and finish times
+        int[] start = new int[ganttData.length];
+        int[] finish = new int[ganttData.length];
+        int currentTime = 0;
+
+        for (int i = 0; i < processOrder.length; i++) {
+            int processIndex = processOrder[i];
+            int arrivalTime = ganttData[processIndex][0];
+            int burstTime = ganttData[processIndex][1];
+
+            if (arrivalTime > currentTime) {
+                currentTime = arrivalTime;
+            }
+
+            start[processIndex] = currentTime;
+            currentTime += burstTime;
+            finish[processIndex] = currentTime;
+
+            // Add process visualization to the progress bar
+            addItem(processIndex, start[processIndex], finish[processIndex]);
+        }
+    }
+
+    private void addUnitToBar(JPanel bar, Color color, int position, boolean isUnitBar) {
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.fill = GridBagConstraints.BOTH;
+        gbc.weightx = 1.0;
+        gbc.weighty = 1.0;
+        gbc.gridx = position;
+        gbc.gridy = 0;
+
+        JPanel unit = new JPanel(new BorderLayout());
+        unit.setBackground(isUnitBar ? Color.WHITE : color); // Set to white for unit bar
+        unit.setPreferredSize(new Dimension(20, bar.getHeight() - 2));
+        
+        if (isUnitBar) {
+            // Add number label to the unit bar
+            JLabel label = new JLabel("| " + position);
+            label.setHorizontalAlignment(SwingConstants.LEFT);
+            label.setFont(new Font("Arial", Font.PLAIN, 20));
+            unit.add(label, BorderLayout.WEST);
+        }
+
+        bar.add(unit, gbc);
     }
 
     private int[] calculateProcessOrder() {
@@ -169,5 +210,52 @@ public class GanttChartGeneration {
         return totalTime;
     }
 
-    
+    private void addItem(int processIndex, int startTime, int finishTime) {
+        String processName = "P" + (processIndex + 1);
+        JButton processButton = new JButton(processName);
+        
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.fill = GridBagConstraints.BOTH;
+        gbc.gridx = startTime;
+        gbc.gridy = 0;
+        gbc.gridwidth = finishTime - startTime;
+        gbc.weightx = 1.0;
+        gbc.weighty = 1.0;
+
+        // Set background color based on process index
+        Color[] colors = {
+            Color.decode("#ff99c8"),
+            Color.decode("#fec8c3"),
+            Color.decode("#fcf6bd"),
+            Color.decode("#d0f4de"),
+            Color.decode("#a9def9"),
+            Color.decode("#e4c1f9")
+        };
+        processButton.setBackground(colors[processIndex % colors.length]);
+
+        // Set button properties
+        processButton.setOpaque(true);
+        processButton.setBorderPainted(false);
+        processButton.setFocusPainted(false);
+
+        progressBar.add(processButton, gbc);
+    }
+
+    private void addFinalTimeLabel() {
+        int totalTime = totalTime();
+        
+        JLabel finalTimeLabel = new JLabel("| " + totalTime);
+        finalTimeLabel.setFont(new Font("Arial", Font.PLAIN, 20));
+        finalTimeLabel.setHorizontalAlignment(SwingConstants.LEFT);
+        finalTimeLabel.setBackground(Color.WHITE); // Set background to white
+        finalTimeLabel.setOpaque(true); // Make the label opaque to show the background color
+
+        // Calculate position
+        int x = unitBar.getX() + unitBar.getWidth();
+        int y = unitBar.getY() + (unitBar.getHeight() / 2) - (finalTimeLabel.getPreferredSize().height / 2);
+
+        finalTimeLabel.setBounds(x, y, finalTimeLabel.getPreferredSize().width, finalTimeLabel.getPreferredSize().height);
+
+        frame.add(finalTimeLabel);
+    }
 }
