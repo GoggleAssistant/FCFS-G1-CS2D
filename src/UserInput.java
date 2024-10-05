@@ -243,6 +243,7 @@ public class UserInput extends JFrame {
             JTextField burstTextField = new JTextField("1"); // Set default value to "1"
             burstTextField.setBounds(20, 190, 100, 30);
             panel.add(burstTextField);
+
         }
     }
 

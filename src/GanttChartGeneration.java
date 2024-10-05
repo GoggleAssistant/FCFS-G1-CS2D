@@ -91,8 +91,9 @@ public class GanttChartGeneration {
         progressBar.removeAll();
         unitBar.removeAll();
         
-        // Calculate unit width
-        int unitWidth = 1010 / totalTime;
+        // Calculate unit width based on the actual width of the progress bar
+        int progressBarWidth = progressBar.getWidth();
+        int unitWidth = progressBarWidth / totalTime;
         
         // Calculate start and finish times
         int[] start = new int[ganttData.length];
@@ -115,9 +116,9 @@ public class GanttChartGeneration {
 
         // Create units for progress bar and unit bar
         for (int i = 0; i < totalTime; i++) {
-            addUnitToBar(progressBar, new Color(200, 200, 200, 50), i, false, false, unitWidth);
+            addUnitToBar(progressBar, new Color(200, 200, 200, 50), i, false, false, unitWidth, totalTime);
             boolean showLabel = (i == 0) || isStartOrFinishTime(i, start, finish);
-            addUnitToBar(unitBar, Color.WHITE, i, true, showLabel, unitWidth);
+            addUnitToBar(unitBar, Color.WHITE, i, true, showLabel, unitWidth, totalTime);
         }
 
         // Calculate average waiting time and average turnaround time
@@ -126,7 +127,7 @@ public class GanttChartGeneration {
         // Add process visualization to the progress bar
         for (int i = 0; i < processOrder.length; i++) {
             int processIndex = processOrder[i];
-            addItem(processIndex, start[processIndex], finish[processIndex], unitWidth);
+            addItem(processIndex, start[processIndex], finish[processIndex]);
         }
     }
 
@@ -158,10 +159,14 @@ public class GanttChartGeneration {
         return false;
     }
 
-    private void addUnitToBar(JPanel bar, Color color, int position, boolean isUnitBar, boolean showLabel, int unitWidth) {
+    private void addUnitToBar(JPanel bar, Color color, int position, boolean isUnitBar, boolean showLabel, int unitWidth, int totalUnits) {
         JPanel unit = new JPanel(new BorderLayout());
         unit.setBackground(color);
-        unit.setBounds(position * unitWidth, 0, unitWidth, bar.getHeight());
+        
+        // Calculate the width of this unit
+        int width = (position == totalUnits - 1) ? bar.getWidth() - (position * unitWidth) : unitWidth;
+        
+        unit.setBounds(position * unitWidth, 0, width, bar.getHeight());
         
         if (isUnitBar && showLabel) {
             // Add number label to the unit bar
@@ -235,11 +240,23 @@ public class GanttChartGeneration {
         return totalTime;
     }
 
-    private void addItem(int processIndex, int startTime, int finishTime, int unitWidth) {
+    private void addItem(int processIndex, int startTime, int finishTime) {
         String processName = "P" + (processIndex + 1);
         JButton processButton = new JButton(processName);
         
-        processButton.setBounds(startTime * unitWidth, 0, (finishTime - startTime) * unitWidth, progressBar.getHeight());
+        int progressBarWidth = progressBar.getWidth();
+        int totalTime = totalTime();
+        int unitWidth = progressBarWidth / totalTime;
+        
+        int x = startTime * unitWidth;
+        int width = (finishTime - startTime) * unitWidth;
+        
+        // Ensure the last process button extends to the end of the progress bar
+        if (finishTime == totalTime) {
+            width = progressBarWidth - x;
+        }
+        
+        processButton.setBounds(x, 0, width, progressBar.getHeight());
 
         Color[] colors = {
             Color.decode("#ff99c8"),
