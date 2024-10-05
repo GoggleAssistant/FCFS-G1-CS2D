@@ -31,7 +31,7 @@ public class GanttChartGeneration {
         frame.setLayout(null); // Use null layout for absolute positioning
 
         // Create the Gantt chart panel (now called progress bar)
-        progressBar = new JPanel();
+        progressBar = new JPanel(null); // Use null layout
         progressBar.setBackground(Color.GRAY);
 
         // Calculate the position to center the panel horizontally and raise it vertically
@@ -40,7 +40,7 @@ public class GanttChartGeneration {
         progressBar.setBounds(x, y, 1000, 100);
 
         // Create the unit bar panel (same size as progress bar)
-        unitBar = new JPanel();
+        unitBar = new JPanel(null); // Use null layout
         unitBar.setBackground(Color.WHITE); // Set background to white
         unitBar.setBounds(x, y + 110, 1000, 50); // Same width as progress bar
 
@@ -87,8 +87,12 @@ public class GanttChartGeneration {
         int[] processOrder = calculateProcessOrder();
         int totalTime = totalTime();
         
-        progressBar.setLayout(new GridBagLayout());
-        unitBar.setLayout(new GridBagLayout());
+        // Remove layout managers
+        progressBar.removeAll();
+        unitBar.removeAll();
+        
+        // Calculate unit width
+        int unitWidth = 1010 / totalTime;
         
         // Calculate start and finish times
         int[] start = new int[ganttData.length];
@@ -111,9 +115,9 @@ public class GanttChartGeneration {
 
         // Create units for progress bar and unit bar
         for (int i = 0; i < totalTime; i++) {
-            addUnitToBar(progressBar, new Color(200, 200, 200, 50), i, false, false);
+            addUnitToBar(progressBar, new Color(200, 200, 200, 50), i, false, false, unitWidth);
             boolean showLabel = (i == 0) || isStartOrFinishTime(i, start, finish);
-            addUnitToBar(unitBar, Color.WHITE, i, true, showLabel);
+            addUnitToBar(unitBar, Color.WHITE, i, true, showLabel, unitWidth);
         }
 
         // Calculate average waiting time and average turnaround time
@@ -122,14 +126,8 @@ public class GanttChartGeneration {
         // Add process visualization to the progress bar
         for (int i = 0; i < processOrder.length; i++) {
             int processIndex = processOrder[i];
-            addItem(processIndex, start[processIndex], finish[processIndex]);
+            addItem(processIndex, start[processIndex], finish[processIndex], unitWidth);
         }
-
-        // Refresh the layout
-        progressBar.revalidate();
-        unitBar.revalidate();
-        progressBar.repaint();
-        unitBar.repaint();
     }
 
     private void calculateAverageTimes(int[] start, int[] finish) {
@@ -160,17 +158,10 @@ public class GanttChartGeneration {
         return false;
     }
 
-    private void addUnitToBar(JPanel bar, Color color, int position, boolean isUnitBar, boolean showLabel) {
-        GridBagConstraints gbc = new GridBagConstraints();
-        gbc.fill = GridBagConstraints.BOTH;
-        gbc.weightx = 1.0;
-        gbc.weighty = 1.0;
-        gbc.gridx = position;
-        gbc.gridy = 0;
-
+    private void addUnitToBar(JPanel bar, Color color, int position, boolean isUnitBar, boolean showLabel, int unitWidth) {
         JPanel unit = new JPanel(new BorderLayout());
         unit.setBackground(color);
-        unit.setPreferredSize(new Dimension(20, bar.getHeight() - 2));
+        unit.setBounds(position * unitWidth, 0, unitWidth, bar.getHeight());
         
         if (isUnitBar && showLabel) {
             // Add number label to the unit bar
@@ -180,7 +171,7 @@ public class GanttChartGeneration {
             unit.add(label, BorderLayout.WEST);
         }
 
-        bar.add(unit, gbc);
+        bar.add(unit);
     }
 
     private int[] calculateProcessOrder() {
@@ -244,17 +235,11 @@ public class GanttChartGeneration {
         return totalTime;
     }
 
-    private void addItem(int processIndex, int startTime, int finishTime) {
+    private void addItem(int processIndex, int startTime, int finishTime, int unitWidth) {
         String processName = "P" + (processIndex + 1);
         JButton processButton = new JButton(processName);
         
-        GridBagConstraints gbc = new GridBagConstraints();
-        gbc.fill = GridBagConstraints.BOTH;
-        gbc.gridx = startTime;
-        gbc.gridy = 0;
-        gbc.gridwidth = finishTime - startTime;
-        gbc.weightx = 1.0;
-        gbc.weighty = 1.0;
+        processButton.setBounds(startTime * unitWidth, 0, (finishTime - startTime) * unitWidth, progressBar.getHeight());
 
         Color[] colors = {
             Color.decode("#ff99c8"),
@@ -272,7 +257,7 @@ public class GanttChartGeneration {
 
         processButton.addActionListener(e -> showProcessInfo(processIndex, startTime, finishTime));
 
-        progressBar.add(processButton, gbc);
+        progressBar.add(processButton);
     }
 
     private void showProcessInfo(int processIndex, int startTime, int finishTime) {
